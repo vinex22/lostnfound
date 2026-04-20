@@ -164,7 +164,9 @@ Open [http://localhost:8000](http://localhost:8000) in your browser.
 
 ## 🧠 Architecture
 
-Edit the diagram: open [docs/architecture.drawio](docs/architecture.drawio) in [draw.io](https://app.diagrams.net/) or VS Code.
+![Architecture](docs/architecture.png)
+
+> Edit the diagram: open [docs/architecture.drawio](docs/architecture.drawio) in [draw.io](https://app.diagrams.net/) or VS Code.
 
 **Flow:**
 
