@@ -85,10 +85,12 @@ def api_report():
     # Upload images to Blob Storage
     item_id = uuid.uuid4().hex
     image_blob_names = []
+    thumb_blob_names = []
     for img_bytes, ct in images:
         try:
-            blob_name = storage_service.upload_image(img_bytes, ct, item_id=item_id)
+            blob_name, thumb_name = storage_service.upload_image(img_bytes, ct, item_id=item_id)
             image_blob_names.append(blob_name)
+            thumb_blob_names.append(thumb_name)
         except Exception as e:
             logger.exception("Image upload failed")
             return jsonify({"error": "Failed to upload image", "detail": str(e)}), 500
@@ -107,6 +109,7 @@ def api_report():
         "location_found": location,
         "found_date": datetime.now(timezone.utc).isoformat(),
         "image_urls": [f"/images/{bn}" for bn in image_blob_names],
+        "thumb_urls": [f"/images/{tn}" for tn in thumb_blob_names],
         "status": "unclaimed",
         "reported_by": reported_by,
     }
@@ -198,7 +201,8 @@ def api_recent_items():
 def serve_image(blob_name):
     try:
         data, content_type = storage_service.download_image(blob_name)
-        return Response(data, mimetype=content_type)
+        return Response(data, mimetype=content_type,
+                        headers={"Cache-Control": "public, max-age=86400"})
     except Exception:
         abort(404)
 

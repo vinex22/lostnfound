@@ -1,6 +1,6 @@
 <mxfile host="65bd71144e">
     <diagram name="Lost &amp; Found Architecture" id="lostnfound-arch">
-        <mxGraphModel dx="1843" dy="1062" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1900" pageHeight="1300" math="0" shadow="0">
+        <mxGraphModel dx="1158" dy="1062" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1900" pageHeight="1300" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
@@ -114,12 +114,6 @@
                 </mxCell>
                 <mxCell id="net-legend" value="Network Isolation&#xa;━━━━━━━━━━━━━━━━━━&#xa;▪ VNet: thick green border&#xa;▪ Subnets: dashed borders&#xa;▪ All data via Private Endpoints&#xa;▪ No public access on DB/Storage&#xa;▪ No API keys — RBAC only" style="text;html=1;fontSize=10;align=left;fillColor=#fff9cc;strokeColor=#d6b656;rounded=1;spacingLeft=8;spacingRight=8;spacingTop=4;strokeWidth=2;" parent="1" vertex="1">
                     <mxGeometry x="880" y="800" width="250" height="120" as="geometry"/>
-                </mxCell>
-                <mxCell id="flow3" value="3" style="ellipse;fillColor=#82b366;fontColor=#fff;fontSize=12;fontStyle=1;strokeColor=none;" parent="1" vertex="1">
-                    <mxGeometry x="670" y="345" width="25" height="25" as="geometry"/>
-                </mxCell>
-                <mxCell id="flow4" value="4" style="ellipse;fillColor=#6c8ebf;fontColor=#fff;fontSize=12;fontStyle=1;strokeColor=none;" parent="1" vertex="1">
-                    <mxGeometry x="670" y="215" width="25" height="25" as="geometry"/>
                 </mxCell>
                 <mxCell id="flow-legend" value="Data Flow&#xa;━━━━━━━━━━━━━━━━&#xa;① Browser → App Service (HTTPS)&#xa;② App → GPT-5.4 (extract metadata)&#xa;③ App → Blob Storage (save image via PE)&#xa;④ App → Cosmos DB (save/query metadata via PE)&#xa;⑤ Results → Browser" style="text;html=1;fontSize=10;align=left;fillColor=#fff;strokeColor=#333;rounded=1;spacingLeft=8;spacingRight=8;spacingTop=4;strokeWidth=2;" parent="1" vertex="1">
                     <mxGeometry x="1240" y="110" width="260" height="130" as="geometry"/>

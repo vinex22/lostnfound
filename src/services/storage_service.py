@@ -1,5 +1,7 @@
+import io
 import uuid
 import logging
+from PIL import Image
 from azure.identity import DefaultAzureCredential
 from azure.storage.blob import BlobServiceClient, ContentSettings
 from src.config import Config
@@ -22,11 +24,21 @@ def _get_container_client():
     return _container_client
 
 
-def upload_image(image_bytes: bytes, content_type: str = "image/jpeg", item_id: str = None) -> str:
-    """Upload an image to Blob Storage.
+def _generate_thumbnail(image_bytes: bytes) -> bytes:
+    """Resize image to 300px max and convert to WebP."""
+    img = Image.open(io.BytesIO(image_bytes))
+    img.thumbnail((300, 300), Image.LANCZOS)
+    buf = io.BytesIO()
+    img.save(buf, format="WEBP", quality=70)
+    buf.seek(0)
+    return buf.getvalue()
+
+
+def upload_image(image_bytes: bytes, content_type: str = "image/jpeg", item_id: str = None) -> tuple[str, str]:
+    """Upload an image + its thumbnail to Blob Storage.
 
     Returns:
-        The blob name (used to construct the proxy URL)
+        (full_blob_name, thumb_blob_name)
     """
     container = _get_container_client()
 
@@ -36,8 +48,12 @@ def upload_image(image_bytes: bytes, content_type: str = "image/jpeg", item_id: 
     elif "webp" in content_type:
         ext = "webp"
 
-    blob_name = f"{item_id or uuid.uuid4().hex}/{uuid.uuid4().hex}.{ext}"
+    file_id = uuid.uuid4().hex
+    prefix = item_id or uuid.uuid4().hex
+    blob_name = f"{prefix}/{file_id}.{ext}"
+    thumb_name = f"{prefix}/{file_id}_thumb.webp"
 
+    # Upload full-size image
     container.upload_blob(
         name=blob_name,
         data=image_bytes,
@@ -45,8 +61,17 @@ def upload_image(image_bytes: bytes, content_type: str = "image/jpeg", item_id: 
         overwrite=True,
     )
 
-    logger.info("Uploaded blob: %s", blob_name)
-    return blob_name
+    # Generate and upload thumbnail
+    thumb_bytes = _generate_thumbnail(image_bytes)
+    container.upload_blob(
+        name=thumb_name,
+        data=thumb_bytes,
+        content_settings=ContentSettings(content_type="image/webp"),
+        overwrite=True,
+    )
+
+    logger.info("Uploaded blob: %s + thumb: %s", blob_name, thumb_name)
+    return blob_name, thumb_name
 
 
 def download_image(blob_name: str) -> tuple[bytes, str]:

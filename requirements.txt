@@ -6,3 +6,4 @@ azure-storage-blob>=12.19
 openai>=1.40
 python-dotenv>=1.0
 gunicorn>=22.0
+Pillow>=10.0
