@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Search Lost Items{% endblock %}
+{% block content %}
+<h2><i class="bi bi-search"></i> Search for Lost Items</h2>
+<p class="subtitle">Describe your item or take a photo</p>
+
+<!-- Search mode tabs -->
+<div class="tab-row">
+  <button class="tab-btn active" data-tab="text-tab" onclick="switchTab(this)">
+    <i class="bi bi-chat-text"></i> Text Search
+  </button>
+  <button class="tab-btn" data-tab="camera-tab" onclick="switchTab(this)">
+    <i class="bi bi-camera"></i> Photo Search
+  </button>
+</div>
+
+<!-- Text Search -->
+<div class="tab-panel active" id="text-tab">
+  <form id="text-search-form">
+    <div class="search-row">
+      <input type="text" id="search-query" placeholder="Describe your item… e.g. 'silver iPhone near Gate B4'">
+      <button class="btn-primary" type="submit"><i class="bi bi-search"></i></button>
+    </div>
+    <p class="hint">You can search in any language.</p>
+  </form>
+</div>
+
+<!-- Camera Search -->
+<div class="tab-panel" id="camera-tab">
+  <form id="image-search-form" enctype="multipart/form-data">
+    <div class="center">
+      <label class="photo-slot photo-slot-lg" id="search-photo-btn">
+        <input type="file" accept="image/*" capture="environment" hidden id="search-photo-input">
+        <i class="bi bi-camera-fill"></i>
+        <small>Take or upload a photo of your item</small>
+      </label>
+      <div id="search-preview"></div>
+    </div>
+    <button class="btn-primary full-width" type="submit" id="image-search-btn" disabled>
+      <i class="bi bi-search"></i> Search by Photo
+    </button>
+  </form>
+</div>
+
+<!-- Loading -->
+<div id="search-loading" class="loading hidden">
+  <div class="spinner"></div>
+  <p>Searching with AI…</p>
+</div>
+
+<!-- Results -->
+<div id="search-results"></div>
+
+<template id="result-card">
+  <div class="result-card">
+    <img src="" class="result-img" alt="Item">
+    <div class="result-body">
+      <div class="card-header-row">
+        <strong class="result-name"></strong>
+        <span class="badge result-category"></span>
+      </div>
+      <p class="card-desc result-desc"></p>
+      <div class="card-meta">
+        <span class="result-color"><i class="bi bi-palette"></i></span>
+        <span class="result-location"><i class="bi bi-geo-alt"></i></span>
+        <span class="result-date"><i class="bi bi-clock"></i></span>
+      </div>
+    </div>
+  </div>
+</template>
+
+<!-- Detail Modal -->
+<div id="detail-modal" class="modal hidden" onclick="if(event.target===this)closeModal()">
+  <div class="modal-content">
+    <button class="modal-close" onclick="closeModal()">&times;</button>
+    <img id="modal-img" src="" alt="Item">
+    <h3 id="modal-name"></h3>
+    <div class="modal-badges">
+      <span class="badge" id="modal-category"></span>
+      <span class="badge badge-status" id="modal-status"></span>
+    </div>
+    <p id="modal-desc" class="card-desc"></p>
+    <table class="detail-table">
+      <tr><td><i class="bi bi-palette"></i> Color</td><td id="modal-color"></td></tr>
+      <tr><td><i class="bi bi-tag"></i> Brand</td><td id="modal-brand"></td></tr>
+      <tr><td><i class="bi bi-arrows-angle-expand"></i> Size</td><td id="modal-size"></td></tr>
+      <tr><td><i class="bi bi-heart-pulse"></i> Condition</td><td id="modal-condition"></td></tr>
+      <tr><td><i class="bi bi-geo-alt"></i> Location</td><td id="modal-location"></td></tr>
+      <tr><td><i class="bi bi-clock"></i> Found</td><td id="modal-date"></td></tr>
+      <tr><td><i class="bi bi-person"></i> Reported by</td><td id="modal-reporter"></td></tr>
+      <tr><td><i class="bi bi-star"></i> Features</td><td id="modal-features"></td></tr>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function switchTab(btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(btn.dataset.tab).classList.add('active');
+}
+</script>
+<script src="{{ url_for('static', filename='js/search.js') }}"></script>
+{% endblock %}

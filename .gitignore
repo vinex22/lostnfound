@@ -1,0 +1,32 @@
+# Environment variables
+.env
+
+# Wiki (agent knowledge base)
+wiki/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# Temp/utility scripts
+inspect_db.py
+
+# Node
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Azure
+.azure/
+*.zip

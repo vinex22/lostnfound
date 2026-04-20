@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h2>Recently Found Items</h2>
+<p class="subtitle">Items reported by airport staff</p>
+
+<div class="grid" id="feed">
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <p>Loading recent items…</p>
+  </div>
+</div>
+
+<template id="item-card">
+  <div class="card" style="cursor:pointer">
+    <img src="" class="card-img item-thumb" alt="Item photo" loading="lazy">
+    <div class="card-content">
+      <div class="card-header-row">
+        <strong class="item-name"></strong>
+        <span class="badge item-category"></span>
+      </div>
+      <p class="card-desc item-desc"></p>
+      <div class="card-meta">
+        <span class="item-color"><i class="bi bi-palette"></i></span>
+        <span class="item-location"><i class="bi bi-geo-alt"></i></span>
+        <span class="item-date"><i class="bi bi-clock"></i></span>
+      </div>
+    </div>
+  </div>
+</template>
+
+<!-- Detail Modal -->
+<div id="detail-modal" class="modal hidden" onclick="if(event.target===this)closeModal()">
+  <div class="modal-content">
+    <button class="modal-close" onclick="closeModal()">&times;</button>
+    <img id="modal-img" src="" alt="Item">
+    <h3 id="modal-name"></h3>
+    <div class="modal-badges">
+      <span class="badge" id="modal-category"></span>
+      <span class="badge badge-status" id="modal-status"></span>
+    </div>
+    <p id="modal-desc" class="card-desc"></p>
+    <table class="detail-table">
+      <tr><td><i class="bi bi-palette"></i> Color</td><td id="modal-color"></td></tr>
+      <tr><td><i class="bi bi-tag"></i> Brand</td><td id="modal-brand"></td></tr>
+      <tr><td><i class="bi bi-arrows-angle-expand"></i> Size</td><td id="modal-size"></td></tr>
+      <tr><td><i class="bi bi-heart-pulse"></i> Condition</td><td id="modal-condition"></td></tr>
+      <tr><td><i class="bi bi-geo-alt"></i> Location</td><td id="modal-location"></td></tr>
+      <tr><td><i class="bi bi-clock"></i> Found</td><td id="modal-date"></td></tr>
+      <tr><td><i class="bi bi-person"></i> Reported by</td><td id="modal-reporter"></td></tr>
+      <tr><td><i class="bi bi-star"></i> Features</td><td id="modal-features"></td></tr>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+  const feed = document.getElementById('feed');
+  const loading = document.getElementById('loading');
+  const tpl = document.getElementById('item-card');
+
+  try {
+    const res = await fetch('/api/items/recent');
+    const data = await res.json();
+    loading.remove();
+
+    if (!data.items || data.items.length === 0) {
+      feed.innerHTML = '<div class="empty-state"><i class="bi bi-inbox"></i><p>No items found yet.</p></div>';
+      return;
+    }
+
+    data.items.forEach(item => {
+      const clone = tpl.content.cloneNode(true);
+      const card = clone.querySelector('.card');
+      const img = clone.querySelector('.item-thumb');
+      img.src = (item.image_urls && item.image_urls[0]) || '';
+      img.alt = item.item_name;
+      clone.querySelector('.item-name').textContent = item.item_name;
+      clone.querySelector('.item-category').textContent = item.category;
+      clone.querySelector('.item-desc').textContent = (item.description || '').slice(0, 100);
+      clone.querySelector('.item-color').innerHTML = '<i class="bi bi-palette"></i> ' + (item.color || '');
+      clone.querySelector('.item-location').innerHTML = '<i class="bi bi-geo-alt"></i> ' + (item.location_found || 'N/A');
+      clone.querySelector('.item-date').innerHTML = '<i class="bi bi-clock"></i> ' + new Date(item.found_date).toLocaleDateString();
+      card.addEventListener('click', () => openModal(item));
+      feed.appendChild(clone);
+    });
+  } catch (err) {
+    loading.innerHTML = '<p class="error">Failed to load items.</p>';
+    console.error(err);
+  }
+});
+
+function openModal(item) {
+  document.getElementById('modal-img').src = (item.image_urls && item.image_urls[0]) || '';
+  document.getElementById('modal-name').textContent = item.item_name;
+  document.getElementById('modal-category').textContent = item.category;
+  document.getElementById('modal-status').textContent = item.status || 'unclaimed';
+  document.getElementById('modal-desc').textContent = item.description || '';
+  document.getElementById('modal-color').textContent = item.color || 'N/A';
+  document.getElementById('modal-brand').textContent = item.brand || 'N/A';
+  document.getElementById('modal-size').textContent = item.size || 'N/A';
+  document.getElementById('modal-condition').textContent = item.condition || 'N/A';
+  document.getElementById('modal-location').textContent = item.location_found || 'N/A';
+  document.getElementById('modal-date').textContent = new Date(item.found_date).toLocaleString();
+  document.getElementById('modal-reporter').textContent = item.reported_by || 'N/A';
+  document.getElementById('modal-features').textContent = item.distinguishing_features || 'None';
+  document.getElementById('detail-modal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+  document.getElementById('detail-modal').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+</script>
+{% endblock %}
