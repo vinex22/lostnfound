@@ -1,5 +1,6 @@
 flask>=3.0
 azure-monitor-opentelemetry>=1.6
+opentelemetry-instrumentation-httpx>=0.48b0
 azure-identity>=1.15
 azure-cosmos>=4.7
 azure-storage-blob>=12.19
@@ -7,4 +8,3 @@ openai>=1.40
 python-dotenv>=1.0
 gunicorn>=22.0
 Pillow>=10.0
-opentelemetry-instrumentation-httpx>=0.46b0
