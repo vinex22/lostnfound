@@ -1,7 +1,7 @@
 import io
 import uuid
 import logging
-from PIL import Image
+from PIL import Image, ImageOps
 from azure.identity import DefaultAzureCredential
 from azure.storage.blob import BlobServiceClient, ContentSettings
 from src.config import Config
@@ -27,6 +27,7 @@ def _get_container_client():
 def _generate_thumbnail(image_bytes: bytes) -> bytes:
     """Resize image to 300px max and convert to WebP."""
     img = Image.open(io.BytesIO(image_bytes))
+    img = ImageOps.exif_transpose(img)  # Fix rotation from phone cameras
     img.thumbnail((300, 300), Image.LANCZOS)
     buf = io.BytesIO()
     img.save(buf, format="WEBP", quality=70)

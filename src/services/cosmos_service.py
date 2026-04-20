@@ -31,13 +31,11 @@ def get_recent_items(limit: int = None) -> list[dict]:
         limit = Config.RECENT_ITEMS_LIMIT
     container = _get_container()
 
-    query = "SELECT * FROM c ORDER BY c.found_date DESC OFFSET 0 LIMIT @limit"
-    params = [{"name": "@limit", "value": limit}]
+    query = f"SELECT * FROM c ORDER BY c.found_date DESC OFFSET 0 LIMIT {int(limit)}"
 
     items = list(
         container.query_items(
             query=query,
-            parameters=params,
             enable_cross_partition_query=True,
         )
     )

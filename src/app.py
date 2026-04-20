@@ -8,6 +8,12 @@ from flask import Flask, render_template, request, jsonify, Response, abort
 if os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING"):
     from azure.monitor.opentelemetry import configure_azure_monitor
     configure_azure_monitor(logger_name="lostnfound")
+    # Instrument httpx so OpenAI SDK calls appear as dependencies in App Insights
+    try:
+        from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+        HTTPXClientInstrumentor().instrument()
+    except (ImportError, Exception):
+        pass  # httpx instrumentation optional
 
 from src.config import Config
 from src.services import ai_service, cosmos_service, storage_service

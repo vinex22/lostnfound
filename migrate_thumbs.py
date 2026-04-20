@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from dotenv import load_dotenv
 load_dotenv()
 
-from PIL import Image
+from PIL import Image, ImageOps
 from azure.identity import DefaultAzureCredential
 from azure.cosmos import CosmosClient
 from azure.storage.blob import BlobServiceClient, ContentSettings
@@ -30,8 +30,8 @@ items = list(container.query_items("SELECT * FROM c", enable_cross_partition_que
 print(f"Found {len(items)} items to migrate")
 
 for item in items:
-    if item.get("thumb_urls"):
-        print(f"  SKIP {item['id'][:8]} — already has thumb_urls")
+    if item.get("thumb_urls") and "--force" not in sys.argv:
+        print(f"  SKIP {item['id'][:8]} — already has thumb_urls (use --force to regenerate)")
         continue
 
     thumb_urls = []
@@ -50,6 +50,7 @@ for item in items:
 
         # Generate thumbnail
         img = Image.open(io.BytesIO(img_bytes))
+        img = ImageOps.exif_transpose(img)  # Fix rotation from phone cameras
         img.thumbnail((300, 300), Image.LANCZOS)
         buf = io.BytesIO()
         img.save(buf, format="WEBP", quality=70)

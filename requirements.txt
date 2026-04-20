@@ -7,3 +7,4 @@ openai>=1.40
 python-dotenv>=1.0
 gunicorn>=22.0
 Pillow>=10.0
+opentelemetry-instrumentation-httpx>=0.46b0
