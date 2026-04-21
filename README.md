@@ -37,10 +37,11 @@ Created by [vinayjain@microsoft.com](mailto:vinayjain@microsoft.com) / [vinex22@
 
 ## ✈️ Features
 
-- **AI Vision Metadata Extraction** — GPT-5.4 reads brand, color, text, distinguishing marks from photos
-- **Multi-language Search** — query in English, Hindi, Chinese, Japanese, etc.
+- **AI Vision Metadata Extraction (v1.1)** — GPT-5.4 reads brand, color, text, OCR, distinguishing marks across up to 3 photos in a single consolidated pass; emits `colors[]`, `ocr_text`, and `confidence`
+- **Hybrid Vector + Keyword Search** — Cosmos DB diskANN vector index (1536-dim, cosine) blended with brand/OCR keyword boosts and a relative cutoff to suppress semantic-neighbor noise
+- **Multi-language Search** — query in English, Hindi, Chinese, Japanese, etc. (LLM normalizes to English fields before vectorization)
 - **Camera Capture** — mobile-first with `capture="environment"` for rear camera
-- **Photo Search** — find items by uploading a similar photo
+- **Photo Search** — find items by uploading a similar photo (re-uses the same extractor)
 - **Up to 3 photos per item** — GPT can request more if quality is insufficient
 - **Private Endpoints** — Cosmos DB and Storage accessible only via VNet
 - **Managed Identity** — zero API keys, zero SAS tokens, zero passwords
@@ -194,6 +195,60 @@ Open [http://localhost:8000](http://localhost:8000) in your browser.
 - No API keys, SAS tokens, or passwords — all auth via `DefaultAzureCredential` + managed identity
 - Cosmos DB and Storage behind Private Endpoints (public access disabled)
 - App Service VNet-integrated to reach PEs
+
+---
+
+## 🏆 Tech Achievements
+
+Things we built beyond the baseline CRUD app:
+
+### 1. Hybrid Vector + Keyword Search (Cosmos DB diskANN) — v1.2
+- New container `items_v2` with a **diskANN vector index** on `/embedding` (1536-dim cosine) — Azure Cosmos DB's newest vector backend, built for sub-100ms ANN at scale.
+- Each item embeds a *concatenated text profile* (name + brand + colors + OCR + features) using `text-embedding-3-small`.
+- Query path:
+  1. LLM converts free-text/photo into a structured field set (any language → English).
+  2. The query embedding text is **enriched** by concatenating `query_text + item_name + brand + color + top-5 keywords` so single-word queries (e.g. `phone`, `alcohol`) get a stronger semantic signal.
+  3. Cosmos returns the top-K nearest neighbors via `VectorDistance(c.embedding, @qv)`.
+  4. A second pass adds a **keyword score** with strong weights for brand match (+10), brand-in-OCR (+8), and OCR keyword hits (+4).
+  5. A **two-tier similarity floor** decides what survives:
+     - If anything is ≥ 0.35 hard floor → keep it plus any neighbor within 0.15 similarity of the top match (rescues e.g. iPhone @0.34 alongside Smartphone @0.48).
+     - If nothing clears 0.35 → soft floor of 0.20 + tight 95%-of-top relative cutoff (stops generic queries like `alcohol` from dragging in every food/drink item).
+  6. **No keyword-search fallback when the vector query returns nothing** — empty result is honest; OR-style keyword fallback used to flood generic queries with noise.
+- Fallback: if the vector index is missing entirely, the service degrades to pure keyword search.
+
+### 2. Multi-Image Consolidation Prompt (v1.1)
+- One GPT-5.4 call takes **up to 3 photos** and returns a single merged JSON record — no per-image post-processing.
+- Schema includes `colors[]` (sorted by dominance), `ocr_text` (verbatim only — explicit anti-hallucination instruction in v1.1), `distinguishing_features`, `confidence`.
+- Versioned prompt with footer marker (`v1.1`) so we can A/B prompt iterations against the same image set.
+
+### 3. Reproducible Re-Extraction Pipeline
+- `scripts/reextract_v2.py` re-runs the latest prompt on every existing item's stored blobs and writes the result back to `items_v2`, preserving the original `id` and `created_at`.
+- Lets us *upgrade prompt + schema* without losing data or re-uploading photos. Used to migrate 14 production items from v1.0 → v1.1 in place.
+
+### 3a. Search Quality Tooling (v1.2)
+- `scripts/eval_search.py` — runs ~30 curated queries against the live `/api/search/text` endpoint and prints an OK/NOISY/MISS/N/A status table. One-shot regression check after any search-tier change.
+- `scripts/debug_search.py <query>` — prints the parsed LLM fields, the embedding text, all candidates *before* the cutoff, and the final ranked result. Indispensable for diagnosing "why didn't X show up" issues.
+- `scripts/bulk_ingest.py` — posts random LoremFlickr images to `/api/report` to grow the corpus during eval. Honors the `needs_more_images` signal.
+
+### 4. Passwordless Everything
+- `DefaultAzureCredential` end-to-end — Cosmos DB, Blob Storage, Azure OpenAI, App Insights.
+- App Service uses a **user-assigned managed identity**; storage account has **shared-key disabled** (subscription policy).
+- Function-app-style storage connection avoided in favor of MI-based blob client.
+
+### 5. Network Isolation
+- Cosmos DB and Storage are reachable **only via Private Endpoints** in `vnet-lostnfound`.
+- App Service is VNet-integrated; public access is disabled on data plane resources.
+- Image serving goes through an authenticated `/images/<path>` proxy in Flask so the storage account never needs public/anonymous access.
+
+### 6. Observability
+- OpenTelemetry auto-instrumentation → Application Insights with Live Metrics.
+- Every search logs the parsed fields, vector hit count, and final hybrid scores — makes the debug scripts (`scripts/debug_search.py`, `scripts/raw_sim.py`) trivial to use.
+
+### 7. Debug & Ops Tooling
+- `scripts/debug_search.py` — replays the full search flow end-to-end against prod Cosmos and prints sim + hybrid score per candidate.
+- `scripts/raw_sim.py` — bypasses hybrid logic, lists raw vector neighbors. Used to pinpoint scoring bugs.
+- `scripts/compare_metadata.py` — diffs old vs. new extractions side-by-side; used to validate prompt upgrades.
+- `scripts/show_latest.py`, `scripts/check_ocr.py` — quick inspection helpers.
 
 ---
 

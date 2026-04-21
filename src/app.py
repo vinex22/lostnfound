@@ -28,6 +28,26 @@ app = Flask(__name__)
 app.config.from_object(Config)
 
 
+def _build_embed_text(fields: dict, raw_query: str) -> str:
+    """Build a richer embedding text from parsed search fields.
+
+    Single-token queries like 'alcohol' or 'tumi' embed weakly. By concatenating
+    the LLM-expanded item_name + brand + color + first few keywords, we move the
+    query vector closer to actual item embeddings (which were built from the same
+    kind of multi-field text).
+    """
+    parts: list[str] = []
+    for key in ("query_text", "item_name", "brand", "color"):
+        v = fields.get(key)
+        if v and isinstance(v, str):
+            parts.append(v)
+    for kw in (fields.get("keywords") or [])[:5]:
+        if isinstance(kw, str) and kw:
+            parts.append(kw)
+    text = " ".join(parts).strip()
+    return text or raw_query
+
+
 # ---------------------------------------------------------------------------
 # Pages
 # ---------------------------------------------------------------------------
@@ -160,7 +180,7 @@ def api_search_text():
     # Generate query embedding for semantic search (best-effort).
     query_embedding = None
     try:
-        embed_text = fields.get("query_text") or query
+        embed_text = _build_embed_text(fields, query)
         query_embedding = ai_service.generate_embedding(embed_text)
     except Exception:
         logger.exception("Query embedding failed; falling back to keyword search")
@@ -195,8 +215,9 @@ def api_search_image():
 
     query_embedding = None
     try:
-        if fields.get("query_text"):
-            query_embedding = ai_service.generate_embedding(fields["query_text"])
+        if fields.get("query_text") or fields.get("item_name"):
+            embed_text = _build_embed_text(fields, fields.get("query_text") or "")
+            query_embedding = ai_service.generate_embedding(embed_text)
     except Exception:
         logger.exception("Query embedding failed; falling back to keyword search")
 

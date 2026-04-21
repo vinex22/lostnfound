@@ -97,9 +97,28 @@ def _hybrid_search(container, fields: dict, query_embedding: list[float]) -> lis
         logger.exception("Vector query failed; falling back to keyword search")
         return _keyword_search(container, fields)
 
-    # Drop very low similarity matches
+    # Drop very low similarity matches, but if NOTHING clears the floor we
+    # still want to return the top vector neighbors (with a softer floor) and
+    # let the relative cutoff handle pruning. Falling back to pure keyword
+    # search here causes generic queries (e.g. "alcohol") to return every
+    # item in the matching category.
     min_sim = Config.HYBRID_MIN_SIMILARITY
-    candidates = [c for c in candidates if c.get("similarity", 0) >= min_sim]
+    strong = [c for c in candidates if c.get("similarity", 0) >= min_sim]
+    if strong:
+        # Also keep close vector neighbors within 0.15 of the strongest match.
+        # This rescues genuine matches like iPhone (0.34) when the literal
+        # keyword match (Smartphone, 0.48) sits just above the hard floor.
+        top_sim = strong[0].get("similarity", 0) or 0
+        neighbor_floor = max(0.20, top_sim - 0.15)
+        candidates = [
+            c for c in candidates
+            if (c.get("similarity", 0) or 0) >= neighbor_floor
+        ]
+        had_strong = True
+    else:
+        soft_floor = max(0.20, min_sim - 0.15)
+        candidates = [c for c in candidates if c.get("similarity", 0) >= soft_floor]
+        had_strong = False
 
     # Add keyword score on top of vector similarity.
     for c in candidates:
@@ -107,9 +126,37 @@ def _hybrid_search(container, fields: dict, query_embedding: list[float]) -> lis
 
     candidates.sort(key=lambda x: x["_hybrid_score"], reverse=True)
 
-    # If none passed the similarity bar, fall back to keyword search.
+    # Relative cutoff. Three regimes:
+    #   - Strong signal (top hybrid >= 10): clear winner with literal keyword
+    #     evidence (brand/OCR hit), so keep candidates within 70% of top.
+    #   - Strong vector match but weak keywords (had_strong True): keep
+    #     neighbors within 0.15 similarity of the top match. Surfaces close
+    #     semantic matches like iPhone (0.34) when literal Smartphone (0.48)
+    #     is the top neighbor.
+    #   - No strong vector match (had_strong False): apply tight similarity
+    #     cutoff (95% of top similarity) to stop generic queries like
+    #     "alcohol" from dragging in every neighbor in the same broad category.
+    if candidates:
+        top = candidates[0]["_hybrid_score"]
+        top_sim = candidates[0].get("similarity", 0) or 0
+        if top >= 10:
+            candidates = [c for c in candidates if c["_hybrid_score"] >= top * 0.7]
+        elif had_strong and top_sim > 0:
+            sim_floor = max(0.20, top_sim - 0.15)
+            candidates = [
+                c for c in candidates
+                if (c.get("similarity", 0) or 0) >= sim_floor
+            ]
+        elif top_sim > 0:
+            candidates = [
+                c for c in candidates
+                if (c.get("similarity", 0) or 0) >= top_sim * 0.95
+            ]
+
+    # If none passed, return empty rather than dumping the whole keyword-matched
+    # universe (which floods generic queries with noise).
     if not candidates:
-        return _keyword_search(container, fields)
+        return []
 
     return candidates
 
@@ -174,7 +221,12 @@ def _keyword_search(container, fields: dict) -> list[dict]:
 
 
 def _keyword_score(item: dict, fields: dict) -> int:
-    """Compute keyword-based score for hybrid ranking (re-used from _rank_results)."""
+    """Compute keyword-based score for hybrid ranking.
+
+    Brand and OCR matches are weighted heavily because they represent literal
+    evidence on the item itself (e.g. visible 'TUMI' label) and are usually
+    much stronger signals than semantic neighbors.
+    """
     s = 0
     if fields.get("category") and item.get("category") == fields["category"]:
         s += 3
@@ -183,19 +235,27 @@ def _keyword_score(item: dict, fields: dict) -> int:
     if fields.get("item_name") and fields["item_name"].lower() in (item.get("item_name") or "").lower():
         s += 4
     if fields.get("brand") and fields.get("brand").lower() not in ("unknown", "null", "none"):
-        if fields["brand"].lower() in (item.get("brand") or "").lower():
-            s += 3
+        brand_q = fields["brand"].lower()
+        if brand_q in (item.get("brand") or "").lower():
+            s += 10  # strong literal brand match
+        elif brand_q in (item.get("ocr_text") or "").lower():
+            s += 8  # brand visible in OCR but not parsed as brand field
     if fields.get("size") and item.get("size") == fields["size"]:
         s += 1
     for kw in fields.get("keywords", [])[:5]:
         kw_l = kw.lower()
+        if len(kw_l) < 3:
+            continue
         desc = (item.get("description") or "").lower()
         name = (item.get("item_name") or "").lower()
         features = (item.get("distinguishing_features") or "").lower()
         ocr = (item.get("ocr_text") or "").lower()
-        if kw_l in name:
+        brand = (item.get("brand") or "").lower()
+        if kw_l in ocr or kw_l in brand:
+            s += 4  # literal text on the item is strong evidence
+        elif kw_l in name:
             s += 2
-        elif kw_l in desc or kw_l in features or kw_l in ocr:
+        elif kw_l in desc or kw_l in features:
             s += 1
     return s
 
