@@ -38,6 +38,7 @@ CRITICAL RULES:
 - `distinguishing_features` must list marks, stickers, scratches, engravings, or labels that are ON the item itself. Use "none visible" if there are none.
 - `colors` must be an ARRAY of the item's colors in order of visual prominence (primary first). Use common color names ("black", "navy blue", "silver", "tan"). 1-3 entries max.
 - `ocr_text` must contain any readable text, numbers, logos, or serial numbers visible ON the item (brand names, model labels, engravings, printed text, stickers). Use "" if none visible. For documents/ID cards, include all readable text. Do NOT transcribe text from the background.
+- CRITICAL: Only include text in `ocr_text` that you can clearly and confidently read character-by-character. If text is blurry, partially obscured, at an angle, or you are unsure of any letter/digit, OMIT that fragment rather than guessing. Never invent or auto-complete plausible-looking words from unclear pixels. Better to return less text than wrong text.
 - Never invent details you cannot see (no guessing model numbers, owners, or origins).
 
 Return ONLY a valid JSON object (no markdown, no code blocks) with these fields:
