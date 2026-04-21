@@ -8,6 +8,10 @@ class Config:
     # Azure AI / OpenAI
     AZURE_AI_SERVICES_ENDPOINT = os.environ.get("AZURE_AI_SERVICES_ENDPOINT")
     AZURE_OPENAI_DEPLOYMENT = os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-5.4")
+    AZURE_OPENAI_EMBEDDING_DEPLOYMENT = os.environ.get(
+        "AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "text-embedding-3-small"
+    )
+    EMBEDDING_DIMENSIONS = int(os.environ.get("EMBEDDING_DIMENSIONS", "1536"))
     OPENAI_API_VERSION = os.environ.get("OPENAI_API_VERSION", "2024-12-01-preview")
 
     # Cosmos DB
@@ -24,3 +28,7 @@ class Config:
     MAX_IMAGES = 3
     MAX_IMAGE_SIZE_MB = 10
     RECENT_ITEMS_LIMIT = 20
+
+    # Search
+    VECTOR_SEARCH_TOP_K = int(os.environ.get("VECTOR_SEARCH_TOP_K", "30"))
+    HYBRID_MIN_SIMILARITY = float(os.environ.get("HYBRID_MIN_SIMILARITY", "0.35"))

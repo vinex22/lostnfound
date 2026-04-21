@@ -107,10 +107,12 @@ def api_report():
         "item_name": metadata.get("item_name", "Unknown item"),
         "description": metadata.get("description", ""),
         "color": metadata.get("color", ""),
+        "colors": metadata.get("colors", []),
         "brand": metadata.get("brand", "unknown"),
         "size": metadata.get("size", "medium"),
         "condition": metadata.get("condition", "fair"),
         "distinguishing_features": metadata.get("distinguishing_features", ""),
+        "ocr_text": metadata.get("ocr_text", ""),
         "location_found": location,
         "found_date": datetime.now(timezone.utc).isoformat(),
         "image_urls": [f"/images/{bn}" for bn in image_blob_names],
@@ -118,6 +120,14 @@ def api_report():
         "status": "unclaimed",
         "reported_by": reported_by,
     }
+
+    # Generate embedding for semantic search (best-effort — don't block save)
+    try:
+        search_text = ai_service.build_search_text(metadata)
+        if search_text:
+            item["embedding"] = ai_service.generate_embedding(search_text)
+    except Exception:
+        logger.exception("Embedding generation failed; saving item without embedding")
 
     # Save to Cosmos DB
     try:
@@ -147,8 +157,16 @@ def api_search_text():
         logger.exception("Search query analysis failed")
         return jsonify({"error": "Failed to analyze search query", "detail": str(e)}), 500
 
+    # Generate query embedding for semantic search (best-effort).
+    query_embedding = None
     try:
-        items = cosmos_service.search_items(fields)
+        embed_text = fields.get("query_text") or query
+        query_embedding = ai_service.generate_embedding(embed_text)
+    except Exception:
+        logger.exception("Query embedding failed; falling back to keyword search")
+
+    try:
+        items = cosmos_service.search_items(fields, query_embedding=query_embedding)
     except Exception as e:
         logger.exception("Cosmos DB search failed")
         return jsonify({"error": "Search failed", "detail": str(e)}), 500
@@ -175,8 +193,15 @@ def api_search_image():
         logger.exception("Image search analysis failed")
         return jsonify({"error": "Failed to analyze image", "detail": str(e)}), 500
 
+    query_embedding = None
     try:
-        items = cosmos_service.search_items(fields)
+        if fields.get("query_text"):
+            query_embedding = ai_service.generate_embedding(fields["query_text"])
+    except Exception:
+        logger.exception("Query embedding failed; falling back to keyword search")
+
+    try:
+        items = cosmos_service.search_items(fields, query_embedding=query_embedding)
     except Exception as e:
         logger.exception("Cosmos DB search failed")
         return jsonify({"error": "Search failed", "detail": str(e)}), 500
