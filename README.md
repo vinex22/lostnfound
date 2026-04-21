@@ -71,7 +71,7 @@ lostnfound/
 │   ├── __init__.py
 │   ├── services/
 │   │   ├── ai_service.py         # GPT-5.4 metadata extraction + search
-│   │   ├── cosmos_service.py     # Cosmos DB CRUD + search queries
+│   │   ├── cosmos_service.py     # Cosmos DB CRUD + hybrid vector search
 │   │   └── storage_service.py    # Blob Storage upload/download
 │   ├── templates/
 │   │   ├── base.html             # Base template (nav, branding)
@@ -83,8 +83,24 @@ lostnfound/
 │       └── js/
 │           ├── report.js         # Report page logic
 │           └── search.js         # Search page logic
+├── scripts/                      # One-off + ops scripts (not deployed)
+│   ├── explain_search.py         # 8-step verbose trace of the search pipeline
+│   ├── debug_search.py           # Parsed fields + raw vector hits + final ranking
+│   ├── eval_search.py            # ~30 curated queries vs. live API (OK/NOISY/MISS)
+│   ├── bulk_ingest.py            # Posts random LoremFlickr images to /api/report
+│   ├── raw_sim.py                # Raw vector neighbours (bypasses hybrid logic)
+│   ├── reextract_v2.py           # Re-run latest GPT prompt over existing items
+│   ├── backfill_v2.py            # Backfill embeddings/fields into items_v2
+│   ├── compare_metadata.py       # Diff old vs. new extraction side-by-side
+│   ├── show_latest.py            # Inspect most-recently ingested items
+│   ├── check_ocr.py              # Quick OCR-text inspector
+│   ├── debug_hybrid.py           # Hybrid score breakdown helper
+│   └── create_vector_container*  # One-time creators for items_v2 (py / arm / ps1)
+├── inspect_db.py                 # Top-level DB inspector
+├── migrate_thumbs.py             # One-time blob thumbnail migration
 ├── docs/
 │   ├── architecture.drawio       # Editable draw.io diagram
+│   ├── architecture.png          # Rendered diagram
 │   └── DEPLOYMENT.md             # Azure deployment guide
 ├── wiki/                         # Agent knowledge base (gitignored)
 ├── .azure/
@@ -228,6 +244,7 @@ Things we built beyond the baseline CRUD app:
 ### 3a. Search Quality Tooling (v1.2)
 - `scripts/eval_search.py` — runs ~30 curated queries against the live `/api/search/text` endpoint and prints an OK/NOISY/MISS/N/A status table. One-shot regression check after any search-tier change.
 - `scripts/debug_search.py <query>` — prints the parsed LLM fields, the embedding text, all candidates *before* the cutoff, and the final ranked result. Indispensable for diagnosing "why didn't X show up" issues.
+- `scripts/explain_search.py <query>` — verbose 8-step "explain like I'm 5" trace of the production pipeline (LLM parse → embed text → vector → Cosmos KNN → two-tier sim floor → hybrid score → three-regime cutoff → final results). Uses the real `src.app` and `src.services.cosmos_service` modules so what you see is what runs in prod.
 - `scripts/bulk_ingest.py` — posts random LoremFlickr images to `/api/report` to grow the corpus during eval. Honors the `needs_more_images` signal.
 
 ### 4. Passwordless Everything
