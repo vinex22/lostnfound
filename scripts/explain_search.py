@@ -193,7 +193,9 @@ def explain(query: str) -> None:
     # --------------------------------------------------------------
     step(7, "Apply the RELATIVE cutoff (three regimes)",
          "Even after re-ranking, the bottom of the list is usually noise. "
-         "  - If top hybrid >= 10 (clear keyword winner): keep within 70% of top. "
+         "  - If top hybrid >= 10 (clear keyword winner): keep within 70% of top "
+         "    OR within 0.15 sim of top vector match (rescues close vector "
+         "    neighbours when one item ran away with the keyword bonus). "
          "  - Else if had_strong (strong vector hit, weak keywords): keep "
          "    neighbours within 0.15 sim of top. "
          "  - Else (no strong match at all): keep within 95% of top similarity "
@@ -203,10 +205,15 @@ def explain(query: str) -> None:
         top_sim = candidates[0].get("similarity", 0) or 0
         if top >= 10:
             regime = f"strong-keyword (top hyb={top:.2f} >= 10)"
-            cut_floor = top * 0.7
-            survivors = [c for c in candidates if c["_hybrid_score"] >= cut_floor]
+            hyb_floor = top * 0.7
+            sim_floor = max(0.20, top_sim - 0.15)
+            survivors = [
+                c for c in candidates
+                if c["_hybrid_score"] >= hyb_floor
+                or (c.get("similarity", 0) or 0) >= sim_floor
+            ]
             kv("Regime", regime)
-            kv("Cutoff", f"hybrid >= {cut_floor:.2f}  (70% of {top:.2f})")
+            kv("Cutoff", f"hybrid >= {hyb_floor:.2f} (70% of {top:.2f})  OR  sim >= {sim_floor:.4f} (top sim {top_sim:.4f} - 0.15)")
         elif had_strong and top_sim > 0:
             regime = "strong-vector / weak-keyword (had_strong=True)"
             cut_floor = max(0.20, top_sim - 0.15)

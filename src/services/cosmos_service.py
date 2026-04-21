@@ -140,7 +140,17 @@ def _hybrid_search(container, fields: dict, query_embedding: list[float]) -> lis
         top = candidates[0]["_hybrid_score"]
         top_sim = candidates[0].get("similarity", 0) or 0
         if top >= 10:
-            candidates = [c for c in candidates if c["_hybrid_score"] >= top * 0.7]
+            # Strong keyword regime: keep within 70% of top hybrid OR within
+            # 0.15 sim of top vector match. The OR rescues close semantic
+            # neighbours (e.g. Coca-Cola for "soft drink" when Schweppes ran
+            # away with the keyword bonus because "soda" is in its name).
+            sim_floor = max(0.20, top_sim - 0.15)
+            hyb_floor = top * 0.7
+            candidates = [
+                c for c in candidates
+                if c["_hybrid_score"] >= hyb_floor
+                or (c.get("similarity", 0) or 0) >= sim_floor
+            ]
         elif had_strong and top_sim > 0:
             sim_floor = max(0.20, top_sim - 0.15)
             candidates = [
